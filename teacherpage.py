@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from tkinter import messagebox, simpledialog, FLAT
 import cv2
 import pickle
@@ -12,10 +13,10 @@ import csv
 import firebase_admin
 from firebase_admin import credentials, auth
 
+
 cred = credentials.Certificate("authdemo-67785-firebase-adminsdk-up4co-757c47829e.json")
 firebase_admin.initialize_app(cred)
 firebase_api_key = 'AIzaSyBzuy6vXeDitBcqBkWMShWZ8fwElfnEyX0'
-
 
 def authenticate(filename, username, password):
     if os.path.exists(filename):
@@ -150,10 +151,10 @@ class FaceRecognitionApp:
                                              borderwidth=0, background="#040405", activebackground="#040405", command=self.check_name)
         self.btn_check_names.place(relx=0.5, rely=0.7, anchor='center')
 
-        self.btn_check_attendance_img = tk.PhotoImage(file='VV.png')
-        self.btn_check_attendance = tk.Button(self.main_frame, image=self.btn_check_attendance_img, bg='#98a65d', cursor="hand2",
-                                             borderwidth=0, background="#040405", activebackground="#040405", command=self.check_attendance)
-        self.btn_check_attendance.place(relx=0.5, rely=0.8, anchor='center')
+        # self.btn_check_attendance_img = tk.PhotoImage(file='VV.png')
+        # self.btn_check_attendance = tk.Button(self.main_frame, image=self.btn_check_attendance_img, bg='#98a65d', cursor="hand2",
+        #                                      borderwidth=0, background="#040405", activebackground="#040405", command=self.check_attendance)
+        # self.btn_check_attendance.place(relx=0.5, rely=0.8, anchor='center')
 
         self.btn_quit_img = tk.PhotoImage(file='xc.png')
         self.btn_quit = tk.Button(self.main_frame, image=self.btn_quit_img, bg='#98a65d', cursor="hand2",
@@ -247,23 +248,47 @@ class FaceRecognitionApp:
         cv2.destroyAllWindows()
 
     def check_name(self):
+        names_window = tk.Toplevel(self.window)
+        names_window.title("Names List")
+
+        # Create a Treeview widget for displaying names in tabular format
+        names_tree = ttk.Treeview(names_window, columns=("Name"), show="headings")
+        names_tree.heading("Name", text="Name")
+
         with open('data/names.pkl', 'rb') as f:
             names = pickle.load(f)
-        self.result_label.config(text="\n".join(set(names)))
+            for name in set(names):
+                names_tree.insert("", "end", values=(name,))
 
-    def check_attendance(self):
-        date = self.show_input_dialog("Enter the date (DD-MM-YYYY) to check attendance:")
-        if date:
-            file_path = f"Attendance/Attendance_{date}.csv"
-            attendance_list = []
-            if os.path.isfile(file_path):
-                with open(file_path, 'r') as csvfile:
-                    reader = csv.reader(csvfile)
-                    for row in reader:
-                        attendance_list.append(f"Name: {row[0]}, Time: {row[1]}")
-            else:
-                attendance_list.append(f"No attendance data available for {date}")
-            self.result_label.config(text="\n".join(attendance_list))
+        names_tree.pack(padx=10, pady=10)
+
+        # Create and add a Quit button to close the window
+        quit_button = tk.Button(names_window, text="Quit", command=names_window.destroy)
+        quit_button.pack(pady=10)
+
+    # def check_attendance(self):
+    #     date = self.show_input_dialog("Enter the date (DD-MM-YYYY) to check attendance:")
+    #     if date:
+    #         # Assuming the date is used as a key in the Firebase database
+    #         attendance_data_ref = db.reference(f'/attendance/{date}')
+    #
+    #         # Retrieve the attendance data for the given date
+    #         attendance_data = attendance_data_ref.get()
+    #
+    #         if attendance_data:
+    #             # Create a CSV string for the attendance data
+    #             csv_data = "Name,Time\n"
+    #             for name, timestamp in attendance_data.items():
+    #                 csv_data += f"{name},{timestamp}\n"
+    #
+    #             # Save the CSV data to a file
+    #             file_path = f"Attendance_{date}.csv"
+    #             with open(file_path, 'w') as csv_file:
+    #                 csv_file.write(csv_data)
+    #
+    #             self.result_label.config(text=f"Attendance data for {date} saved to {file_path}")
+    #         else:
+    #             self.result_label.config(text=f"No attendance data available for {date}")
 class RegistrationPage:
     def __init__(self, window, filename):
         self.window = window
@@ -353,13 +378,17 @@ class RegistrationPage:
             )
             messagebox.showinfo("User created successfully:", user.uid)
         except ValueError as ve:
-            messagebox.showerror("Invalid input: {str(ve)}")
+            messagebox.showerror("Invalid input", str(ve))
         except auth.EmailAlreadyExistsError:
-            messagebox.showerror("Error","Email already exists. User creation failed.")
+            messagebox.showerror("Error", "Email already exists. User creation failed.")
         except auth.WeakPasswordError:
-            messagebox.showerror("Error","Weak password. User creation failed.")
+            messagebox.showerror("Error", "Weak password. Strong password needed for security.")
+            # Add a label below the password field to indicate the need for a strong password
+            self.strong_password_label = tk.Label(self.reg_frame, text="Type a strong password", bg="#040405", fg="red",
+                                                  font=("yu gothic ui", 10, "italic"))
+            self.strong_password_label.place(x=580, y=450)
         except Exception as e:
-            messagebox.showerror("Error","User creation failed. An error occurred: {str(e)}")
+            messagebox.showerror("Error", f"User creation failed. An error occurred: {str(e)}")
 
     def go_back(self):
         self.reg_frame.destroy()
@@ -456,10 +485,14 @@ class LoginPage:
         email = self.username_entry.get()
         password = self.password_entry.get()
 
+        if not email or not password:
+            messagebox.showerror("Error", "Username and password cannot be empty.")
+            return False
+
         try:
             user = auth.get_user_by_email(email)
             auth.sign_in_with_email_and_password(email, password)
-            self.open_face_recognition("Teacjer")
+            self.open_face_recognition("Teacher")
             return True
         except auth.UserNotFoundError:
             messagebox.showerror("Login Failed", "User not found. Login failed.")
